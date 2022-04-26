@@ -1,0 +1,14 @@
+{% load static %}
+<header>
+    <a href="">
+        <img src="{% static 'images/logo.svg' %}" alt="">
+    </a>
+    <nav>
+        <ul>
+            <li>
+                <a href="{% url 'projects' %}">Home</a>
+                <a href="{% url 'create-project' %}">Add project</a>
+            </li>
+        </ul>
+    </nav>
+</header>
