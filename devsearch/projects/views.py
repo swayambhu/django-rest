@@ -1,56 +1,88 @@
+from unittest import result
 from django.shortcuts import get_object_or_404, redirect, render
-from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from projects.utils import searchProjects, paginateProjects
 from .models import Project
-from .forms import ProjectForm
+from .forms import ProjectForm, ReviewForm
+from django.contrib import messages
 # Create your views here.
 
 
 def projects(request):
-    projects = Project.objects.all()
+    projects, search_query = searchProjects(request)
+    custom_range, projects = paginateProjects(request, projects, 6)
     context = {
-        "projects": projects
+        "projects": projects,
+        "search_query": search_query,
+        "custom_range": custom_range,
     }
     return render(request, "projects/projects.html", context)
 
 
 def single_project(request, slug=None):
-    project = get_object_or_404(Project, pk=slug)
+    projectObj = get_object_or_404(Project, pk=slug)
+    form = ReviewForm()
+    
+    if request.method == 'POST':
+        form = ReviewForm(request.POST)
+        review = form.save(commit=False)
+        review.project = projectObj
+        review.owner = request.user.profile
+        review.save()
+        
+        # Update project vote count
+        
+        projectObj.getVoteCount
+        
+        messages.success(request, 'Your review was successfully submitted')
+        return redirect('single-project', slug=projectObj.id)
+        
     context = {
-        "project": project
+        "project": projectObj,
+        "form": form
     }
     return render(request, 'projects/single-project.html', context)
 
-
+@login_required(login_url='login')
 def create_project(request):
+    profile = request.user.profile
+    
     create_project_form = ProjectForm()
     
     if request.POST:
-        create_project_form = ProjectForm(request.POST)
+        create_project_form = ProjectForm(request.POST, request.FILES)
         if create_project_form.is_valid():
-            create_project_form.save()
-            return redirect('projects')
+            project = create_project_form.save(commit = False)
+            project.owner = profile
+            project.save()
+            return redirect('account')
     context = {
         "form": create_project_form
     }
     return render(request, "projects/project_form.html", context)
 
 
+@login_required(login_url='login')
 def update_project(request, pk):
-    project = Project.objects.get(id=pk)
+    profile = request.user.profile
+    project = profile.project_set.get(id=pk)
     form = ProjectForm(instance=project)
 
     if request.POST:
-        form = ProjectForm(request.POST, instance=project)
+        form = ProjectForm(request.POST, request.FILES, instance=project)
         if form.is_valid():
             form.save()
-            return redirect('projects')
+            return redirect('account')
     context = {
         "form": form
     }
     return render(request, "projects/project_form.html", context)
 
+
+@login_required(login_url='login')
 def delete_project(request, pk):
-    project = get_object_or_404(Project, pk=pk)
+    profile = request.user.profile
+    project = profile.project_set.get(id=pk)
     
     if request.POST:
         project.delete()
@@ -59,4 +91,4 @@ def delete_project(request, pk):
     context = {
         "object": project    
     }
-    return render(request, 'projects/delete_template.html', context)
+    return render(request, 'delete_template.html', context)
